@@ -1,0 +1,19 @@
+{
+  "name": "CampusKey",
+  "short_name": "CampusKey",
+  "description": "Passwordless campus authentication via WebAuthn passkeys",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "orientation": "portrait-primary",
+  "categories": ["education", "security"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

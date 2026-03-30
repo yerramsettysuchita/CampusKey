@@ -1,0 +1,44 @@
+# Render.com deployment manifest — free tier Node.js web service
+# Docs: https://render.com/docs/blueprint-spec
+#
+# SETUP STEPS:
+#   1. Push CampusKey/ root (NOT client/) to a GitHub repo
+#   2. Go to render.com → New → Blueprint → point at your repo
+#   3. Render reads this file and creates the service automatically
+#   4. Set the secret env vars in Render dashboard (JWT_SECRET, ORIGIN, RP_ID)
+
+services:
+  - type: web
+    name: campuskey-api
+    runtime: node
+    plan: free
+    rootDir: .          # root of the repo = CampusKey/ folder
+    buildCommand: npm install
+    startCommand: node server.js
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 10000     # Render assigns this port automatically
+
+      # ── Generate a strong random secret in the Render dashboard ──────────
+      - key: JWT_SECRET
+        generateValue: true
+
+      # ── IMPORTANT: update these after your Vercel deploy gives you a URL ──
+      - key: ORIGIN
+        value: https://campuskey.vercel.app    # replace with your actual Vercel URL
+
+      - key: RP_ID
+        value: campuskey.vercel.app            # domain only, no https://
+
+      - key: RP_NAME
+        value: Campus Passkey
+
+      - key: JWT_TTL
+        value: 24h
+
+      - key: ADMIN_CODE
+        value: ADMIN123

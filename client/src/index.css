@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: #f8fafc;
+    color: #0f172a;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #root { min-height: 100vh; }
+}
+
+@layer components {
+  /* ── Glass card (light) ──────────────────────────────────────────── */
+  .glass-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 1.25rem;
+    box-shadow:
+      0 4px 24px rgba(0, 0, 0, 0.06),
+      0 1px 4px rgba(0, 0, 0, 0.04);
+  }
+
+  /* ── Primary button (solid indigo) ──────────────────────────────── */
+  .glass-btn-primary {
+    @apply relative w-full rounded-xl py-3 px-6 font-bold text-white
+           flex items-center justify-center gap-2
+           transition-all duration-200
+           disabled:opacity-60 disabled:cursor-not-allowed;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border: none;
+    box-shadow: 0 6px 22px rgba(99, 102, 241, 0.36);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .glass-btn-primary:not(:disabled):hover {
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+    box-shadow: 0 8px 28px rgba(99, 102, 241, 0.45);
+    transform: translateY(-1px);
+  }
+  .glass-btn-primary:not(:disabled):active { transform: scale(0.97); }
+
+  /* ── Wave footer ─────────────────────────────────────────────────── */
+  .wave-footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+}
+
+/* ── Shimmer animation (used on loading buttons) ────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }

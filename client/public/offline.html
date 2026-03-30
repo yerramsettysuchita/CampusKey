@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0e1a" />
+  <title>CampusKey — Offline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: linear-gradient(145deg, #0a0e1a 0%, #111827 60%, #0d1220 100%);
+      color: #f0f4ff;
+      font-family: Inter, system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* Orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(70px);
+      pointer-events: none;
+      animation: float 9s ease-in-out infinite;
+    }
+    .orb-1 { width: 500px; height: 500px; top: -15%; left: -10%; background: rgba(80,120,200,0.12); }
+    .orb-2 { width: 350px; height: 350px; bottom: -10%; right: 5%; background: rgba(60,100,180,0.09); animation-delay: 3s; animation-duration: 11s; }
+
+    @keyframes float {
+      0%,100% { transform: translate(0,0); }
+      50%      { transform: translate(20px,-18px); }
+    }
+
+    /* Card */
+    .card {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      padding: 2.5rem 2rem;
+      max-width: 380px;
+      width: 90%;
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(160,192,224,0.18);
+      border-radius: 1rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+      animation: fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .icon-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: rgba(160,192,224,0.10);
+      border: 1px solid rgba(160,192,224,0.22);
+      margin-bottom: 1.25rem;
+    }
+
+    .icon-wrap svg { width: 28px; height: 28px; color: #a0c0e0; }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #f0f4ff;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      font-size: 0.875rem;
+      color: rgba(160,192,224,0.58);
+      line-height: 1.55;
+      margin-bottom: 1.5rem;
+    }
+
+    a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.625rem 1.5rem;
+      border-radius: 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #f0f4ff;
+      text-decoration: none;
+      background: linear-gradient(135deg, rgba(160,192,224,0.20) 0%, rgba(128,168,208,0.12) 100%);
+      border: 1px solid rgba(160,192,224,0.28);
+      transition: all 0.2s;
+    }
+    a:hover {
+      background: linear-gradient(135deg, rgba(160,192,224,0.30) 0%, rgba(128,168,208,0.22) 100%);
+      border-color: rgba(160,192,224,0.50);
+      box-shadow: 0 0 20px rgba(160,192,224,0.15);
+    }
+
+    .note {
+      margin-top: 1.25rem;
+      font-size: 0.7rem;
+      color: rgba(160,192,224,0.28);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <div class="card">
+    <div class="icon-wrap">
+      <!-- wifi-off icon -->
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="2" y1="2" x2="22" y2="22"/>
+        <path d="M8.5 16.5a5 5 0 0 1 7 0"/>
+        <path d="M2 8.82a15 15 0 0 1 4.17-2.65"/>
+        <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/>
+        <path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/>
+        <path d="M5 12.03a10 10 0 0 1 5.17-2.8"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+    </div>
+    <h1>You're offline</h1>
+    <p>
+      CampusKey needs a connection to verify your passkey.<br />
+      Check your network and try again.
+    </p>
+    <a href="/">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
+      Retry
+    </a>
+    <p class="note">CampusKey · Passwordless Auth · FIDO2</p>
+  </div>
+</body>
+</html>

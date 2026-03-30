@@ -1,0 +1,23 @@
+{
+  "appId": "com.campuskey.app",
+  "appName": "CampusKey",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": null,
+      "keystoreAlias": null
+    }
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "backgroundColor": "#0a0e1a",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}
