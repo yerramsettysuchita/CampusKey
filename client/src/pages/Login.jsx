@@ -225,7 +225,7 @@ export default function Login() {
         <motion.div
           initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
-          className="glass-card p-8"
+          className="glass-card p-5 sm:p-8"
         >
           {/* Biometric scanner visual */}
           <div className="flex flex-col items-center mb-6">
@@ -252,8 +252,8 @@ export default function Login() {
               { icon: ScanFace,    label: 'Face ID'     },
               { icon: Scan,        label: 'Windows Hello' },
             ].map(({ icon: Icon, label }) => (
-              <div key={label} className="flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl"
-                style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', minWidth: 76 }}>
+              <div key={label} className="flex flex-col items-center gap-1.5 px-2 py-2.5 rounded-xl flex-1"
+                style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', minWidth: 0 }}>
                 <Icon className="w-5 h-5" style={{ color: '#6366f1' }} />
                 <span className="text-xs font-semibold text-center" style={{ color: '#475569', lineHeight: 1.2 }}>{label}</span>
               </div>

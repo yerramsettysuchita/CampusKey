@@ -312,15 +312,14 @@ export default function Enroll() {
               </div>
 
               {/* Details card */}
-              <div style={{ background: '#fff', borderRadius: 20, padding: '6px 0', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+              <div style={{ background: '#fff', borderRadius: 20, padding: '4px 0', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                 {detailRows.map(([k, v], i) => (
                   <div key={k} style={{
-                    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-                    padding: '13px 20px', gap: 16,
+                    padding: '11px 20px',
                     borderBottom: i < detailRows.length - 1 ? '1px solid #f1f5f9' : 'none',
                   }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, paddingTop: 1 }}>{k}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', textAlign: 'right', wordBreak: 'break-word', overflowWrap: 'break-word', minWidth: 0 }}>{v}</span>
+                    <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>{k}</span>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 700, color: '#0f172a', lineHeight: 1.4 }}>{v}</span>
                   </div>
                 ))}
               </div>
@@ -429,7 +428,7 @@ export default function Enroll() {
         <motion.div
           initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
-          className="glass-card p-8"
+          className="glass-card p-5 sm:p-8"
         >
           <div className="mb-7 text-center">
             <motion.div
