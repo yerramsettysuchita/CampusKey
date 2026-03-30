@@ -358,10 +358,10 @@ The original proposal described several features. Here is an honest account of w
 ## Contributors
 
 **Yerramsetty Sai Venkata Suchita**
-Final Year, B.E. Computer Science and Engineering — MSRUAS
+Final Year, B.Tech. Computer Science and Engineering — MSRUAS
 
 **Mailey Manjunath**
-Third Year, B.E. Computer Science and Engineering — MSRUAS
+Third Year, B.Tech. Computer Science and Engineering — MSRUAS
 
 Built as a team submission for Srijan 2026 by Atos Global IT Solutions and Services.
 
