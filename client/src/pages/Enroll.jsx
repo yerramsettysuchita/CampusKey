@@ -315,12 +315,12 @@ export default function Enroll() {
               <div style={{ background: '#fff', borderRadius: 20, padding: '6px 0', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                 {detailRows.map(([k, v], i) => (
                   <div key={k} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '13px 20px',
+                    display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                    padding: '13px 20px', gap: 16,
                     borderBottom: i < detailRows.length - 1 ? '1px solid #f1f5f9' : 'none',
                   }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{k}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', maxWidth: 200, textAlign: 'right', wordBreak: 'break-all' }}>{v}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0, paddingTop: 1 }}>{k}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', textAlign: 'right', wordBreak: 'break-word', overflowWrap: 'break-word', minWidth: 0 }}>{v}</span>
                   </div>
                 ))}
               </div>

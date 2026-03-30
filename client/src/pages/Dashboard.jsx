@@ -52,6 +52,16 @@ function Tag({ label, color, bg }) {
   );
 }
 
+function useIsMobile() {
+  const [m, setM] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+  useEffect(() => {
+    const fn = () => setM(window.innerWidth < 640);
+    window.addEventListener('resize', fn);
+    return () => window.removeEventListener('resize', fn);
+  }, []);
+  return m;
+}
+
 const card = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' };
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
@@ -550,6 +560,7 @@ function FacCourses() {
 
 // ─── FACULTY: Students ────────────────────────────────────────────────────────
 function FacStudents() {
+  const isMobile = useIsMobile();
   const [search, setSearch]   = useState('');
   const [filter, setFilter]   = useState('all');
   const statusMap = {
@@ -567,7 +578,7 @@ function FacStudents() {
 
   return (
     <div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:14 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(3,1fr)', gap:10, marginBottom:14 }}>
         {[
           { k:'good',     label:'On Track',  count:counts.good,     color:'#059669', bg:'#dcfce7' },
           { k:'risk',     label:'At Risk',   count:counts.risk,     color:'#d97706', bg:'#fef3c7' },
@@ -629,6 +640,7 @@ function FacStudents() {
 
 // ─── FACULTY: Leave ───────────────────────────────────────────────────────────
 function FacLeave() {
+  const isMobile = useIsMobile();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ type:'Academic Leave', from:'', to:'', reason:'' });
   const [submitted, setSubmitted] = useState(false);
@@ -654,7 +666,7 @@ function FacLeave() {
 
   return (
     <div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:16 }}>
+      <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap:12, marginBottom:16 }}>
         {leaveTypes.map(l => (
           <div key={l.label} style={{ ...card }}>
             <p style={{ fontSize:10, color:'#94a3b8', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8 }}>{l.label}</p>
@@ -686,7 +698,7 @@ function FacLeave() {
       {showForm && (
         <div style={{ marginBottom:14, background:'#eef2ff', border:'1.5px solid #c7d2fe', borderRadius:14, padding:'16px 18px' }}>
           <p style={{ fontSize:13, fontWeight:700, color:'#4f46e5', marginBottom:12 }}>New Leave Application</p>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:10 }}>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap:10, marginBottom:10 }}>
             <div>
               <label style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:4 }}>Leave Type</label>
               <select value={form.type} onChange={e => setForm({...form, type:e.target.value})}
@@ -921,6 +933,7 @@ export default function Dashboard() {
   const [activeTab,  setActiveTab]  = useState(tabs[0].id);
   const [auditLogs,  setAuditLogs]  = useState([]);
   const [auditLoading, setAuditLoading] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (activeTab === 'security' && auditLogs.length === 0) {
@@ -986,13 +999,15 @@ export default function Dashboard() {
             </span>
           </div>
 
-          {/* Live clock */}
-          <div style={{ display:'flex', alignItems:'center', gap:6, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:9, padding:'5px 12px' }}>
-            <Clock size={12} color='#94a3b8' />
-            <span style={{ fontSize:12, fontWeight:700, color:'#475569', fontFamily:'monospace', letterSpacing:'0.02em' }}>
-              {now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true })}
-            </span>
-          </div>
+          {/* Live clock — hidden on mobile to save space */}
+          {!isMobile && (
+            <div style={{ display:'flex', alignItems:'center', gap:6, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:9, padding:'5px 12px' }}>
+              <Clock size={12} color='#94a3b8' />
+              <span style={{ fontSize:12, fontWeight:700, color:'#475569', fontFamily:'monospace', letterSpacing:'0.02em' }}>
+                {now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true })}
+              </span>
+            </div>
+          )}
 
           {/* Right controls */}
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -1001,13 +1016,13 @@ export default function Dashboard() {
             </div>
             <button onClick={handleLogout}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', borderRadius:9, border:'1px solid #e2e8f0', background:'#fff', color:'#64748b', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-              <LogOut size={12} /> Sign out
+              <LogOut size={12} />{!isMobile && ' Sign out'}
             </button>
           </div>
         </div>
       </nav>
 
-      <div style={{ maxWidth: 1140, margin: '0 auto', padding: '20px 18px 40px' }}>
+      <div style={{ maxWidth: 1140, margin: '0 auto', padding: isMobile ? '14px 12px 32px' : '20px 18px 40px' }}>
 
         {/* ── Welcome Banner ── */}
         <AnimatePresence>
@@ -1028,11 +1043,15 @@ export default function Dashboard() {
           <h1 style={{ fontSize:22, fontWeight:800, color:'#0f172a', margin:0 }}>
             {greeting}, <span style={{color:'#4f46e5'}}>{name.split(' ')[0]}</span>
           </h1>
-          <p style={{ fontSize:12, color:'#64748b', marginTop:4 }}>
-            {now.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+          <p style={{ fontSize:12, color:'#64748b', marginTop:4, lineHeight:1.6 }}>
+            {now.toLocaleDateString('en-IN', { weekday: isMobile ? 'short' : 'long', day:'numeric', month: isMobile ? 'short' : 'long', year:'numeric' })}
             {role === 'student'
-              ? ` · ${STU.branch} · Sem ${STU.sem} · Roll: ${STU.roll}`
-              : ` · ${FAC.dept} · ${FAC.designation} · ${FAC.empId}`}
+              ? isMobile
+                ? <><br />Sem {STU.sem} · Roll: {STU.roll}</>
+                : ` · ${STU.branch} · Sem ${STU.sem} · Roll: ${STU.roll}`
+              : isMobile
+                ? <><br />{FAC.designation}</>
+                : ` · ${FAC.dept} · ${FAC.designation} · ${FAC.empId}`}
           </p>
           <div style={{ marginTop:8, display:'inline-flex', alignItems:'center', gap:6, background:'#dcfce7', border:'1px solid #bbf7d0', borderRadius:20, padding:'3px 12px' }}>
             <ShieldCheck size={11} color='#059669' />
@@ -1041,7 +1060,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Stats Row ── */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:12, marginBottom:16 }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(auto-fit,minmax(200px,1fr))', gap: isMobile ? 8 : 12, marginBottom:16 }}>
           {stats.map((s, i) => (
             <motion.div key={s.label} initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay: i*0.06 }}
               style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:12, boxShadow:'0 1px 4px rgba(0,0,0,0.04)' }}>
@@ -1111,8 +1130,9 @@ export default function Dashboard() {
           <div style={{ display:'flex', borderBottom:'1px solid #f1f5f9', overflowX:'auto' }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-                flex:1, minWidth:100, display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-                padding:'14px 10px', border:'none', cursor:'pointer',
+                flex:1, minWidth: isMobile ? 44 : 100,
+                display:'flex', alignItems:'center', justifyContent:'center', gap: isMobile ? 0 : 7,
+                padding: isMobile ? '12px 6px' : '14px 10px', border:'none', cursor:'pointer',
                 background: activeTab===t.id ? '#fff' : '#f8fafc',
                 borderBottom: `3px solid ${activeTab===t.id ? t.color : 'transparent'}`,
                 color: activeTab===t.id ? t.color : '#94a3b8',
@@ -1120,8 +1140,8 @@ export default function Dashboard() {
                 fontSize: 13,
                 transition: 'all 0.18s',
               }}>
-                <t.icon size={15} />
-                {t.label}
+                <t.icon size={isMobile ? 18 : 15} />
+                {!isMobile && t.label}
               </button>
             ))}
           </div>
