@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config();
+try { require('dotenv').config(); } catch (_) { /* not installed in production */ }
 
 // Polyfill Web Crypto for Node 18 (required by @simplewebauthn/server v13)
 if (!globalThis.crypto) {
