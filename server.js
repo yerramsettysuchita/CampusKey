@@ -70,6 +70,7 @@ const PRIVATE_NET = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.
 function isAllowedOrigin(origin) {
   if (!origin) return true;
   if (CONFIGURED_ORIGINS.includes(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+(\.vercel\.app)$/.test(origin)) return true;
   if (process.env.NODE_ENV !== 'production' && PRIVATE_NET.test(origin)) return true;
   return false;
 }
