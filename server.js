@@ -338,9 +338,11 @@ app.post('/auth/register/start', async (req, res) => {
       attestationType      : 'none',
       excludeCredentials,
       authenticatorSelection: {
-        authenticatorAttachment: 'platform',
-        userVerification       : 'required',
-        residentKey            : 'preferred',
+        // No authenticatorAttachment restriction — allows both device biometrics
+        // (Windows Hello, Touch ID, Android fingerprint) and cross-platform
+        // (security keys). Google Password Manager is treated as 'platform'.
+        userVerification: 'preferred',
+        residentKey     : 'required', // forces discoverable credential so Google PM syncs it
       },
     });
 
@@ -455,16 +457,18 @@ app.post('/auth/login/start', async (req, res) => {
     }
 
     const allowCredentials = creds.map(c => ({
-      id        : c.credential_id,
-      type      : 'public-key',
-      transports: JSON.parse(c.transports || '[]'),
+      id  : c.credential_id,
+      type: 'public-key',
+      // Omit transports so the browser picks the best method for the current
+      // device (Windows Hello, Google Password Manager, or QR cross-device)
+      // rather than being forced into a specific transport like 'hybrid'.
     }));
 
     const { rpId: rpIdAuth } = resolveOrigin(req);
 
     const options = await generateAuthenticationOptions({
       rpID            : rpIdAuth,
-      userVerification: 'required',
+      userVerification: 'preferred',
       allowCredentials,
     });
 
