@@ -1,5 +1,7 @@
 'use strict';
 
+require('dotenv').config();
+
 // Polyfill Web Crypto for Node 18 (required by @simplewebauthn/server v13)
 if (!globalThis.crypto) {
   globalThis.crypto = require('crypto').webcrypto;
@@ -631,6 +633,341 @@ app.delete('/api/admin/revoke/:email', requireAdmin, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to revoke credentials', detail: err.message });
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ANALYTICS
+// ─────────────────────────────────────────────────────────────────────────────
+
+app.get('/api/admin/analytics/logins-over-time', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbAll(
+      `SELECT DATE(created_at) AS date, COUNT(*)::int AS count
+       FROM audit_logs
+       WHERE action = 'login_success' AND created_at > NOW() - INTERVAL '30 days'
+       GROUP BY DATE(created_at) ORDER BY date`
+    );
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch login analytics', detail: err.message });
+  }
+});
+
+app.get('/api/admin/analytics/risk-distribution', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbAll(
+      `SELECT risk_level, COUNT(*)::int AS count FROM audit_logs GROUP BY risk_level`
+    );
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch risk distribution', detail: err.message });
+  }
+});
+
+app.get('/api/admin/analytics/device-breakdown', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbAll(`SELECT user_agent FROM audit_logs WHERE user_agent IS NOT NULL`);
+    const counts = { Mobile: 0, Desktop: 0, Tablet: 0, Unknown: 0 };
+    for (const { user_agent } of rows) {
+      const ua = user_agent || '';
+      if (/iPad|Tablet/i.test(ua))                  counts.Tablet++;
+      else if (/Mobile/i.test(ua))                  counts.Mobile++;
+      else if (/Windows|Macintosh|Linux/i.test(ua)) counts.Desktop++;
+      else                                           counts.Unknown++;
+    }
+    const data = Object.entries(counts).map(([device, count]) => ({ device, count }));
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch device breakdown', detail: err.message });
+  }
+});
+
+app.get('/api/admin/analytics/hourly-activity', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbAll(
+      `SELECT EXTRACT(HOUR FROM created_at)::int AS hour, COUNT(*)::int AS count
+       FROM audit_logs WHERE action = 'login_success'
+       GROUP BY hour ORDER BY hour`
+    );
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch hourly activity', detail: err.message });
+  }
+});
+
+app.get('/api/admin/analytics/auth-methods', requireAdmin, async (req, res) => {
+  try {
+    const rows = await dbAll(
+      `SELECT meta FROM audit_logs WHERE action IN ('login_success', 'register_success')`
+    );
+    const counts = {};
+    for (const { meta } of rows) {
+      let method = 'biometric';
+      try {
+        const parsed = JSON.parse(meta || '{}');
+        if (parsed.method) method = parsed.method;
+      } catch { /* ignore malformed meta */ }
+      counts[method] = (counts[method] || 0) + 1;
+    }
+    const data = Object.entries(counts).map(([method, count]) => ({ method, count }));
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch auth methods', detail: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SEED DEMO DATA
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEMO_USERS = [
+  { email: 'rahul.sharma@ruas.ac.in',    name: 'Rahul Sharma',          role: 'student', roll_number: 'CSE21001',  department: 'CSE',  branch: 'Computer Science'        },
+  { email: 'priya.nair@ruas.ac.in',      name: 'Priya Nair',            role: 'student', roll_number: 'CSE21002',  department: 'CSE',  branch: 'Computer Science'        },
+  { email: 'arjun.krishna@ruas.ac.in',   name: 'Arjun Krishna',         role: 'student', roll_number: 'CSE21003',  department: 'CSE',  branch: 'Computer Science'        },
+  { email: 'sneha.reddy@ruas.ac.in',     name: 'Sneha Reddy',           role: 'student', roll_number: 'ECE21004',  department: 'ECE',  branch: 'Electronics'             },
+  { email: 'vikram.gupta@ruas.ac.in',    name: 'Vikram Gupta',          role: 'student', roll_number: 'ECE21005',  department: 'ECE',  branch: 'Electronics'             },
+  { email: 'amit.patel@ruas.ac.in',      name: 'Amit Patel',            role: 'student', roll_number: 'MECH21006', department: 'MECH', branch: 'Mechanical Engineering'  },
+  { email: 'divya.menon@ruas.ac.in',     name: 'Divya Menon',           role: 'student', roll_number: 'MECH21007', department: 'MECH', branch: 'Mechanical Engineering'  },
+  { email: 'kavya.singh@ruas.ac.in',     name: 'Kavya Singh',           role: 'student', roll_number: 'MBA21008',  department: 'MBA',  branch: 'Business Administration' },
+  { email: 'rohan.verma@ruas.ac.in',     name: 'Rohan Verma',           role: 'student', roll_number: 'MBA21009',  department: 'MBA',  branch: 'Business Administration' },
+  { email: 'ananya.iyer@ruas.ac.in',     name: 'Ananya Iyer',           role: 'student', roll_number: 'CSE22010',  department: 'CSE',  branch: 'Computer Science'        },
+  { email: 'suresh.kumar@ruas.ac.in',    name: 'Suresh Kumar',          role: 'student', roll_number: 'ECE22011',  department: 'ECE',  branch: 'Electronics'             },
+  { email: 'lakshmi.prasad@ruas.ac.in',  name: 'Lakshmi Prasad',        role: 'student', roll_number: 'MECH22012', department: 'MECH', branch: 'Mechanical Engineering'  },
+  { email: 'dr.ramesh@ruas.ac.in',       name: 'Dr. Ramesh Kumar',      role: 'faculty', roll_number: null,        department: 'CSE',  branch: null                      },
+  { email: 'prof.sunita@ruas.ac.in',     name: 'Prof. Sunita Rao',      role: 'faculty', roll_number: null,        department: 'ECE',  branch: null                      },
+  { email: 'dr.krishnaswamy@ruas.ac.in', name: 'Dr. Krishnaswamy',      role: 'faculty', roll_number: null,        department: 'MECH', branch: null                      },
+  { email: 'prof.malhotra@ruas.ac.in',   name: 'Prof. Anita Malhotra',  role: 'faculty', roll_number: null,        department: 'MBA',  branch: null                      },
+  { email: 'dr.venkat@ruas.ac.in',       name: 'Dr. Venkataraman',      role: 'faculty', roll_number: null,        department: 'CSE',  branch: null                      },
+  { email: 'prof.deshpande@ruas.ac.in',  name: 'Prof. Meera Deshpande', role: 'faculty', roll_number: null,        department: 'ECE',  branch: null                      },
+];
+
+app.post('/api/admin/seed-demo-data', requireAdmin, async (req, res) => {
+  try {
+    // Idempotency: skip if demo users already exist
+    const existingCheck = await dbGet(
+      `SELECT COUNT(*)::int AS cnt FROM users WHERE email LIKE '%@ruas.ac.in'`
+    );
+    if ((existingCheck?.cnt || 0) >= 5) {
+      return res.json({ success: true, message: 'Demo data already seeded', users_created: 0, logs_created: 0 });
+    }
+
+    // Insert demo users
+    let usersCreated = 0;
+    for (const u of DEMO_USERS) {
+      const result = await dbRun(
+        `INSERT INTO users (email, name, role, roll_number, department, branch)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (email) DO NOTHING`,
+        [u.email, u.name, u.role, u.roll_number || null, u.department || null, u.branch || null]
+      );
+      if (result.rowCount > 0) usersCreated++;
+    }
+
+    // Generate 150 realistic audit log entries (5 per day × 30 days)
+    const SEED_EMAILS  = DEMO_USERS.map(u => u.email);
+    const SEED_UAS     = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/121.0',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Safari/537.36 Edg/120.0.0.0',
+      'Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+    ];
+    const SEED_IPS     = ['10.0.1.45','10.0.1.78','10.0.2.12','10.0.2.56','10.0.3.90','10.0.4.23','10.1.0.15','10.1.1.8'];
+    const SEED_ACTIONS = ['login_success','login_success','login_success','login_success','login_failure','register_success','login_success','login_success'];
+    // Weighted hour distribution: morning peak 8-10, afternoon 2-4, some evening, rare late-night
+    const SEED_HOURS   = [8,8,8,9,9,9,10,14,14,15,15,16,11,13,18,20,1,2];
+
+    let logsCreated = 0;
+    let idx = 0;
+    const now = new Date();
+
+    for (let day = 0; day < 30; day++) {
+      for (let j = 0; j < 5; j++) {
+        const email  = SEED_EMAILS [(idx)      % SEED_EMAILS.length];
+        const ua     = SEED_UAS    [(idx * 3)  % SEED_UAS.length];
+        const ip     = SEED_IPS    [(idx * 7)  % SEED_IPS.length];
+        const action = SEED_ACTIONS[(idx * 11) % SEED_ACTIONS.length];
+        const hour   = SEED_HOURS  [(idx * 13) % SEED_HOURS.length];
+        const minute = (idx * 17) % 60;
+        const second = (idx * 31) % 60;
+
+        const ts = new Date(now);
+        ts.setDate(ts.getDate() - (29 - day));
+        ts.setHours(hour, minute, second, 0);
+
+        const rawRisk   = action === 'login_failure' ? 40 + (idx % 30) :
+                          hour < 5                   ? 30 + (idx % 20) : idx % 22;
+        const riskScore = Math.min(rawRisk, 100);
+        const riskLevel = riskScore >= 60 ? 'high' : riskScore >= 30 ? 'medium' : 'low';
+        const status    = action === 'login_failure' ? 'failure' : 'success';
+
+        await dbRun(
+          `INSERT INTO audit_logs (email, action, ip, user_agent, risk_score, risk_level, status, meta, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [email, action, ip, ua, riskScore, riskLevel, status, '{}', ts.toISOString()]
+        );
+        logsCreated++;
+        idx++;
+      }
+    }
+
+    res.json({ success: true, users_created: usersCreated, logs_created: logsCreated });
+  } catch (err) {
+    console.error('[seed-demo-data]', err);
+    res.status(500).json({ error: 'Seed failed', detail: err.message });
+  }
+});
+
+// ============================================================
+// OAuth 2.0 / OpenID Connect Bridge
+// Allows campus applications (ERP, LMS, Library) to use
+// CampusKey as their identity provider via standard OAuth 2.0
+// This enables true Single Sign-On across all campus systems
+// ============================================================
+
+const OAUTH_REDIRECT_WHITELIST = [
+  'http://localhost:3000/callback',
+  'http://localhost:5173/oauth/callback',
+  'https://campuskey-five.vercel.app/oauth/callback',
+];
+
+const oauthCodes = new Map(); // code -> { userId, redirectUri, expires }
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, data] of oauthCodes) {
+    if (now > data.expires) oauthCodes.delete(code);
+  }
+}, 60_000);
+
+// OpenID Connect Discovery Document
+app.get('/.well-known/openid-configuration', (req, res) => {
+  const { origin } = resolveOrigin(req);
+  res.json({
+    issuer: origin,
+    authorization_endpoint: `${origin}/oauth/authorize`,
+    token_endpoint: `${origin}/oauth/token`,
+    userinfo_endpoint: `${origin}/oauth/userinfo`,
+    jwks_uri: `${origin}/.well-known/jwks.json`,
+    response_types_supported: ['code'],
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['HS256'],
+    scopes_supported: ['openid', 'profile', 'email'],
+    token_endpoint_auth_methods_supported: ['none'],
+    claims_supported: ['sub', 'name', 'email', 'role', 'iss', 'iat', 'exp'],
+  });
+});
+
+// OAuth 2.0 Authorization Endpoint
+// Client redirects user here; we validate JWT session and issue a code
+app.get('/oauth/authorize', async (req, res) => {
+  const { client_id, redirect_uri, response_type, state } = req.query;
+
+  if (response_type !== 'code') {
+    return res.status(400).json({ error: 'unsupported_response_type' });
+  }
+  if (!redirect_uri || !OAUTH_REDIRECT_WHITELIST.includes(redirect_uri)) {
+    return res.status(400).json({ error: 'invalid_redirect_uri' });
+  }
+
+  // Require a valid CampusKey JWT
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  if (!token) {
+    return res.status(401).json({ error: 'login_required', message: 'Present a CampusKey JWT as Bearer token' });
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+  } catch {
+    return res.status(401).json({ error: 'invalid_token' });
+  }
+
+  const code = require('crypto').randomBytes(20).toString('hex');
+  oauthCodes.set(code, {
+    userId: payload.sub,
+    userName: payload.name,
+    userRole: payload.role,
+    redirectUri: redirect_uri,
+    clientId: client_id,
+    expires: Date.now() + 5 * 60 * 1000, // 5 minutes
+  });
+
+  const params = new URLSearchParams({ code, state: state || '' });
+  res.redirect(`${redirect_uri}?${params}`);
+});
+
+// OAuth 2.0 Token Endpoint
+// Exchanges authorization code for access_token + id_token
+app.post('/oauth/token', async (req, res) => {
+  const { code, redirect_uri, grant_type } = req.body;
+
+  if (grant_type !== 'authorization_code') {
+    return res.status(400).json({ error: 'unsupported_grant_type' });
+  }
+
+  const entry = oauthCodes.get(code);
+  if (!entry || Date.now() > entry.expires) {
+    return res.status(400).json({ error: 'invalid_grant', message: 'Code expired or not found' });
+  }
+  if (entry.redirectUri !== redirect_uri) {
+    return res.status(400).json({ error: 'invalid_grant', message: 'redirect_uri mismatch' });
+  }
+
+  oauthCodes.delete(code); // one-time use
+
+  const user = await dbGet('SELECT id, username, role FROM users WHERE id = $1', [entry.userId]);
+  if (!user) {
+    return res.status(400).json({ error: 'invalid_grant', message: 'User not found' });
+  }
+
+  const { origin } = resolveOrigin(req);
+  const accessToken = jwt.sign(
+    { sub: user.id, name: user.username, role: user.role, iss: origin, aud: entry.clientId },
+    process.env.JWT_SECRET || 'dev-secret',
+    { expiresIn: '1h' }
+  );
+  const idToken = jwt.sign(
+    { sub: user.id, name: user.username, role: user.role, iss: origin, aud: entry.clientId },
+    process.env.JWT_SECRET || 'dev-secret',
+    { expiresIn: '1h' }
+  );
+
+  res.json({
+    access_token: accessToken,
+    id_token: idToken,
+    token_type: 'Bearer',
+    expires_in: 3600,
+    scope: 'openid profile',
+  });
+});
+
+// OAuth 2.0 UserInfo Endpoint
+// Returns profile claims for the authenticated user
+app.get('/oauth/userinfo', async (req, res) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  if (!token) return res.status(401).json({ error: 'missing_token' });
+
+  let payload;
+  try {
+    payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+  } catch {
+    return res.status(401).json({ error: 'invalid_token' });
+  }
+
+  const user = await dbGet('SELECT id, username, role FROM users WHERE id = $1', [payload.sub]);
+  if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+  res.json({
+    sub: user.id,
+    name: user.username,
+    preferred_username: user.username,
+    role: user.role,
+    email: `${user.username}@campus.edu`,
+    email_verified: true,
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

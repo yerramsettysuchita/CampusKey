@@ -3,12 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShieldCheck, Users, AlertTriangle, CheckCircle2,
   Fingerprint, Loader2, Trash2, RefreshCw, Lock,
-  TrendingUp, Activity,
+  TrendingUp, Activity, BarChart2, Database,
 } from 'lucide-react';
 import { api } from '../lib/api';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, BarChart, Bar, CartesianGrid,
+} from 'recharts';
 
 const riskColor = { low: '#059669', medium: '#d97706', high: '#dc2626' };
-const riskBg    = { low: '#dcfce7', medium: '#fef3c7', high: '#fee2e2' };
+const riskBg        = { low: '#dcfce7', medium: '#fef3c7', high: '#fee2e2' };
+const RISK_COLORS   = { low: '#22c55e', medium: '#f59e0b', high: '#ef4444', critical: '#7c3aed' };
+const DEVICE_COLORS = { Mobile: '#6366f1', Desktop: '#4f46e5', Tablet: '#818cf8', Unknown: '#94a3b8' };
 
 function Badge({ label, color, bg }) {
   return (
@@ -28,7 +34,34 @@ export default function Admin() {
   const [users,     setUsers]     = useState([]);
   const [logs,      setLogs]      = useState([]);
   const [revoking,  setRevoking]  = useState('');
-  const [tab,       setTab]       = useState('users');
+  const [tab,              setTab]              = useState('users');
+  const [analytics,        setAnalytics]        = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [seeding,          setSeeding]          = useState(false);
+
+  async function fetchAnalytics(key) {
+    setAnalyticsLoading(true);
+    try {
+      const [logins, risk, devices, hourly, methods] = await Promise.all([
+        api.getLoginAnalytics(key),
+        api.getRiskDistribution(key),
+        api.getDeviceBreakdown(key),
+        api.getHourlyActivity(key),
+        api.getAuthMethods(key),
+      ]);
+      setAnalytics({
+        logins  : logins.data   || [],
+        risk    : risk.data     || [],
+        devices : devices.data  || [],
+        hourly  : hourly.data   || [],
+        methods : methods.data  || [],
+      });
+    } catch (e) {
+      console.error('[Analytics]', e);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -43,6 +76,7 @@ export default function Admin() {
       setLogs(l.logs || []);
       setAdminKey(keyInput);
       setAuthed(true);
+      fetchAnalytics(keyInput);
     } catch {
       setError('Could not connect. Please check the key and try again.');
     } finally {
@@ -72,8 +106,23 @@ export default function Admin() {
         api.adminAudit(adminKey),
       ]);
       setStats(s); setUsers(u.users || []); setLogs(l.logs || []);
+      fetchAnalytics(adminKey);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSeedDemoData() {
+    if (!window.confirm('Insert 18 demo users and 150 realistic audit log entries for demonstration?')) return;
+    setSeeding(true);
+    try {
+      const result = await api.seedDemoData(adminKey);
+      alert(`Demo data seeded! ${result.users_created || 0} users and ${result.logs_created || 0} logs created.`);
+      refresh();
+    } catch (e) {
+      alert('Seeding failed: ' + e.message);
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -163,6 +212,153 @@ export default function Admin() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* ── Security Analytics ───────────────────────────────────────── */}
+        {stats && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.1 }}
+            style={{ marginBottom: 20 }}
+          >
+            {/* Section header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BarChart2 size={17} color="#4f46e5" />
+                <h2 style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', margin: 0 }}>Security Analytics</h2>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {stats.totalUsers < 5 && (
+                  <button
+                    onClick={handleSeedDemoData}
+                    disabled={seeding}
+                    title="Populate the database with 18 demo users and 150 realistic audit events"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 9, border: '1px solid #fbbf24', background: '#fffbeb', color: '#92400e', fontSize: 12, fontWeight: 700, cursor: seeding ? 'not-allowed' : 'pointer', opacity: seeding ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                  >
+                    {seeding ? <Loader2 size={12} className="animate-spin" /> : <Database size={12} />}
+                    {seeding ? 'Seeding…' : 'Populate Demo Data'}
+                  </button>
+                )}
+                <button
+                  onClick={() => fetchAnalytics(adminKey)}
+                  disabled={analyticsLoading}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 9, border: '1px solid #e2e8f0', background: '#fff', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  <RefreshCw size={12} className={analyticsLoading ? 'animate-spin' : ''} /> Refresh Charts
+                </button>
+              </div>
+            </div>
+
+            {/* Loading state */}
+            {analyticsLoading && !analytics && (
+              <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 13 }}>
+                <Loader2 size={22} color="#6366f1" className="animate-spin" style={{ margin: '0 auto 10px', display: 'block' }} />
+                Loading analytics…
+              </div>
+            )}
+
+            {/* Charts grid */}
+            {analytics && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 14 }}>
+
+                {/* Login Trend (30 days) */}
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 14, marginTop: 0 }}>Login Trend — Last 30 Days</p>
+                  {analytics.logins.length === 0 ? (
+                    <p style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '40px 0' }}>No login data yet. Populate demo data to see charts.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={180}>
+                      <LineChart data={analytics.logins.map(d => ({ count: d.count, date: new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} interval="preserveStartEnd" />
+                        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} width={28} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                        <Line type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={2.5} dot={false} name="Logins" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+
+                {/* Risk Distribution */}
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 14, marginTop: 0 }}>Risk Distribution</p>
+                  {analytics.risk.length === 0 ? (
+                    <p style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '40px 0' }}>No audit data yet.</p>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <ResponsiveContainer width="55%" height={180}>
+                        <PieChart>
+                          <Pie data={analytics.risk} dataKey="count" nameKey="risk_level" innerRadius={48} outerRadius={74} paddingAngle={3}>
+                            {analytics.risk.map((entry) => (
+                              <Cell key={entry.risk_level} fill={RISK_COLORS[entry.risk_level] || '#94a3b8'} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} formatter={(v, n) => [v, n]} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {analytics.risk.map(r => (
+                          <div key={r.risk_level} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: RISK_COLORS[r.risk_level] || '#94a3b8', flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, color: '#475569', flex: 1, textTransform: 'capitalize' }}>{r.risk_level}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{r.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Device Breakdown */}
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 14, marginTop: 0 }}>Device Breakdown</p>
+                  {analytics.devices.every(d => d.count === 0) ? (
+                    <p style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '40px 0' }}>No device data yet.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={analytics.devices.filter(d => d.count > 0)} layout="vertical" margin={{ left: 8, right: 12 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis type="number" tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} />
+                        <YAxis dataKey="device" type="category" tick={{ fontSize: 12, fill: '#475569' }} width={62} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                        <Bar dataKey="count" radius={[0, 6, 6, 0]} name="Sessions">
+                          {analytics.devices.filter(d => d.count > 0).map((entry) => (
+                            <Cell key={entry.device} fill={DEVICE_COLORS[entry.device] || '#94a3b8'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+
+                {/* Peak Login Hours */}
+                <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 14, marginTop: 0 }}>Peak Login Hours</p>
+                  {analytics.hourly.length === 0 ? (
+                    <p style={{ color: '#94a3b8', fontSize: 12, textAlign: 'center', padding: '40px 0' }}>No login data yet.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart
+                        data={Array.from({ length: 24 }, (_, i) => {
+                          const found = analytics.hourly.find(h => Number(h.hour) === i);
+                          return { hour: `${i}h`, count: found ? found.count : 0 };
+                        })}
+                        margin={{ right: 8 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="hour" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={2} />
+                        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} allowDecimals={false} width={28} />
+                        <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                        <Bar dataKey="count" fill="#4f46e5" radius={[3, 3, 0, 0]} name="Logins" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+
+              </div>
+            )}
+          </motion.div>
         )}
 
         {/* Tabs */}

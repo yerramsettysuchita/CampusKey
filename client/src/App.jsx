@@ -1,10 +1,14 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
-import Landing   from './pages/Landing';
-import Login     from './pages/Login';
-import Enroll    from './pages/Enroll';
-import Dashboard from './pages/Dashboard';
-import Admin     from './pages/Admin';
+import Landing          from './pages/Landing';
+import Login            from './pages/Login';
+import Enroll           from './pages/Enroll';
+import Dashboard        from './pages/Dashboard';
+import Admin            from './pages/Admin';
+import Compliance       from './pages/Compliance';
+import CostCalculator   from './pages/CostCalculator';
+import DeploymentGuide  from './pages/DeploymentGuide';
+import OAuthDemo        from './pages/OAuthDemo';
 
 // Shows nothing while rehydrating to avoid a flash-redirect to "/"
 function ProtectedRoute({ children }) {
@@ -24,7 +28,11 @@ export default function App() {
           <Dashboard />
         </ProtectedRoute>
       } />
-      <Route path="/admin"     element={<Admin />} />
+      <Route path="/admin"            element={<Admin />} />
+      <Route path="/compliance"       element={<Compliance />} />
+      <Route path="/cost-calculator"  element={<CostCalculator />} />
+      <Route path="/deployment-guide" element={<DeploymentGuide />} />
+      <Route path="/oauth-demo"       element={<OAuthDemo />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

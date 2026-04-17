@@ -78,4 +78,18 @@ export const api = {
   adminRevoke: (key, email) => fetch(`${BASE}/api/admin/revoke/${encodeURIComponent(email)}`, {
     method: 'DELETE', headers: { 'x-admin-key': key },
   }).then(r => r.json()),
+
+  // ── Analytics (admin) ─────────────────────────────────────────────────────
+  getLoginAnalytics  : (key) => fetch(`${BASE}/api/admin/analytics/logins-over-time`,  { headers: { 'x-admin-key': key } }).then(r => r.json()),
+  getRiskDistribution: (key) => fetch(`${BASE}/api/admin/analytics/risk-distribution`, { headers: { 'x-admin-key': key } }).then(r => r.json()),
+  getDeviceBreakdown : (key) => fetch(`${BASE}/api/admin/analytics/device-breakdown`,  { headers: { 'x-admin-key': key } }).then(r => r.json()),
+  getHourlyActivity  : (key) => fetch(`${BASE}/api/admin/analytics/hourly-activity`,   { headers: { 'x-admin-key': key } }).then(r => r.json()),
+  getAuthMethods     : (key) => fetch(`${BASE}/api/admin/analytics/auth-methods`,      { headers: { 'x-admin-key': key } }).then(r => r.json()),
+
+  // ── Seed demo data ────────────────────────────────────────────────────────
+  seedDemoData: (key) => fetch(`${BASE}/api/admin/seed-demo-data`, {
+    method: 'POST',
+    headers: { 'x-admin-key': key, 'Content-Type': 'application/json' },
+    body: '{}',
+  }).then(r => r.json()),
 };

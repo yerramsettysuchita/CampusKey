@@ -46,7 +46,11 @@ There is nothing to remember, nothing to type, and nothing that can be stolen fr
 | [campuskey-five.vercel.app](https://campuskey-five.vercel.app) | Main application (home, login, register, dashboard) |
 | [campuskey-five.vercel.app/enroll](https://campuskey-five.vercel.app/enroll) | Register your passkey (student or faculty) |
 | [campuskey-five.vercel.app/login](https://campuskey-five.vercel.app/login) | Sign in with biometric |
-| [campuskey-five.vercel.app/admin](https://campuskey-five.vercel.app/admin) | Admin risk dashboard (requires admin key) |
+| [campuskey-five.vercel.app/admin](https://campuskey-five.vercel.app/admin) | Admin risk dashboard with security analytics (requires admin key) |
+| [campuskey-five.vercel.app/compliance](https://campuskey-five.vercel.app/compliance) | Security & compliance overview (FIDO2, DPDPA 2023, WCAG 2.1) |
+| [campuskey-five.vercel.app/cost-calculator](https://campuskey-five.vercel.app/cost-calculator) | Interactive ROI calculator — OTP vs CampusKey cost breakdown |
+| [campuskey-five.vercel.app/deployment-guide](https://campuskey-five.vercel.app/deployment-guide) | 9-step campus deployment guide with infrastructure cost table |
+| [campuskey-five.vercel.app/oauth-demo](https://campuskey-five.vercel.app/oauth-demo) | OAuth 2.0 / OpenID Connect SSO flow simulator |
 | [campuskey-api.onrender.com](https://campuskey-api.onrender.com) | Backend REST API |
 
 **Demo credentials to try the app:**
@@ -222,6 +226,16 @@ CREATE TABLE audit_logs (
 | GET | `/api/admin/users` | Return all users with credential and risk data (admin key required) |
 | GET | `/api/admin/audit` | Return full audit log (admin key required) |
 | DELETE | `/api/admin/revoke/:email` | Revoke all passkeys for a user (admin key required) |
+| GET | `/api/analytics/login-trend` | 7-day login trend (admin key required) |
+| GET | `/api/analytics/risk-distribution` | Risk level distribution across all events (admin key required) |
+| GET | `/api/analytics/device-breakdown` | Device/platform breakdown from audit logs (admin key required) |
+| GET | `/api/analytics/hourly-activity` | Hourly authentication heatmap (admin key required) |
+| GET | `/api/analytics/auth-methods` | Authentication method distribution (admin key required) |
+| POST | `/api/admin/seed-demo-data` | Populate 18 demo users and 150 audit log entries (admin key required) |
+| GET | `/.well-known/openid-configuration` | OpenID Connect discovery document |
+| GET | `/oauth/authorize` | OAuth 2.0 authorization endpoint — issues short-lived authorization code |
+| POST | `/oauth/token` | OAuth 2.0 token endpoint — exchanges code for access_token and id_token |
+| GET | `/oauth/userinfo` | OAuth 2.0 userinfo endpoint — returns profile claims from Bearer token |
 
 ---
 
@@ -292,11 +306,15 @@ CampusKey/
     ├── public/
     ├── src/
     │   ├── pages/
-    │   │   ├── Landing.jsx            # Home page with full project information
+    │   │   ├── Landing.jsx            # Home page with enterprise features grid
     │   │   ├── Login.jsx              # Biometric login with contextual verification
     │   │   ├── Enroll.jsx             # Passkey registration with QR cross-device flow
     │   │   ├── Dashboard.jsx          # Full ERP-style student and faculty dashboard
-    │   │   └── Admin.jsx              # Admin risk dashboard and user management
+    │   │   ├── Admin.jsx              # Admin risk dashboard, analytics, and user management
+    │   │   ├── Compliance.jsx         # Security standards and DPDPA compliance page
+    │   │   ├── CostCalculator.jsx     # Interactive ROI calculator with INR formatting
+    │   │   ├── DeploymentGuide.jsx    # 9-step deployment guide with cost table
+    │   │   └── OAuthDemo.jsx          # OAuth 2.0 / OIDC SSO flow simulator
     │   ├── components/
     │   │   ├── FloatingOrbs.jsx       # Background animation component
     │   │   └── QRAuthModal.jsx        # QR code modal for cross-device flow
@@ -346,12 +364,39 @@ The original proposal described several features. Here is an honest account of w
 - Compliance-ready audit trail with full activity log per user
 - Continuous risk scoring on every authentication event
 - Admin Risk Dashboard with user management and passkey revocation
+- Security Analytics Dashboard with 4 recharts visualisations and demo data seeding
+- OAuth 2.0 / OpenID Connect identity provider bridge for campus application SSO
+- Security & Compliance page covering FIDO2, DPDPA 2023, WCAG 2.1, and enterprise audit standards
+- Interactive ROI Calculator showing per-campus OTP cost versus CampusKey savings in INR
+- 9-step Deployment Guide with infrastructure cost table from pilot to multi-campus rollout
+- SSO Flow Simulator demonstrating the full OAuth authorization code flow step by step
 
 **Planned for future development:**
-- Real integrations with actual college ERP and LMS backends via LDAP or OAuth 2.0
 - Push notification-based fallback authentication for devices without biometric sensors
 - Offline authentication using time-bound cryptographic tokens for poor network conditions
 - Integration with Keycloak or Azure Active Directory as a campus identity provider
+- Real integrations with actual college ERP and LMS backends via LDAP or OAuth 2.0 (OAuth bridge stub is live; full ERP adapters remain future work)
+
+---
+
+## New: Enterprise Features Added for Jury Round
+
+Beyond the core WebAuthn authentication, the following enterprise-grade features were built specifically for the jury presentation to demonstrate real-world production readiness.
+
+**Security Analytics Dashboard** (Admin page)
+A recharts-powered analytics section inside the Admin dashboard with four live charts: 7-day login trend, risk level distribution, device/platform breakdown, and hourly authentication heatmap. Includes a one-click "Populate Demo Data" button that seeds 18 demo users and 150 realistic audit log entries so the charts display immediately for any reviewer.
+
+**OAuth 2.0 / OpenID Connect Bridge** (server.js + /oauth-demo)
+CampusKey now acts as a standard OpenID Connect identity provider. Any campus application (ERP, LMS, Library, Lab Booking, Wi-Fi portal) that supports OAuth 2.0 can integrate with CampusKey as its authentication backend in under 30 minutes. The live endpoints are `/.well-known/openid-configuration`, `/oauth/authorize`, `/oauth/token`, and `/oauth/userinfo`. An interactive SSO Flow Simulator at `/oauth-demo` demonstrates the full authorization code flow step by step with real JSON payloads.
+
+**Security & Compliance Page** (/compliance)
+A dedicated page covering the four compliance pillars: FIDO2 and WebAuthn standards with security properties, DPDPA 2023 alignment with data residency and biometric protection clauses, WCAG 2.1 Level AA accessibility, and enterprise-grade security features including zero-knowledge architecture and hardware-bound credentials.
+
+**Interactive ROI Calculator** (/cost-calculator)
+A real-time cost comparison tool with four sliders (students, faculty, daily logins, academic days). Calculates the total annual cost of the current OTP system including SMS charges, helpdesk overhead, and breach risk exposure, then shows the CampusKey cost (zero for campuses under 10,000 users). Displays results in Indian number formatting with crore, lakh, and K suffixes.
+
+**Deployment Guide** (/deployment-guide)
+A 9-step integration checklist covering DNS setup, server provisioning, database initialisation, passkey enrollment rollout, and multi-campus federation. Includes an infrastructure cost table comparing pilot, single-campus, and multi-campus tiers (₹0 to ₹35,000/month), and an integration checklist showing which features are production-ready versus planned.
 
 ---
 

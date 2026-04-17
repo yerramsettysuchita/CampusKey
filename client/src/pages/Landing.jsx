@@ -95,6 +95,28 @@ export default function Landing() {
               Srijan 2026
             </span>
           </div>
+          <div className="hidden md:flex items-center gap-0.5">
+            <Link to="/compliance"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-indigo-50"
+              style={{ color: '#64748b' }}>
+              Compliance
+            </Link>
+            <Link to="/cost-calculator"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-indigo-50"
+              style={{ color: '#64748b' }}>
+              ROI Calculator
+            </Link>
+            <Link to="/deployment-guide"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-indigo-50"
+              style={{ color: '#64748b' }}>
+              Deploy
+            </Link>
+            <Link to="/oauth-demo"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors hover:bg-indigo-50"
+              style={{ color: '#64748b' }}>
+              SSO Demo
+            </Link>
+          </div>
           <div className="flex items-center gap-2">
             {user ? (
               <Link to="/dashboard"
@@ -343,6 +365,75 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Enterprise Features ── */}
+      <section style={{ padding: '80px 20px', background: '#fff', borderTop: '1px solid #e2e8f0' }}>
+        <div className="max-w-5xl mx-auto">
+          <motion.div {...fadeUp()} className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-4 text-xs font-bold uppercase tracking-wider"
+              style={{ background: '#eef2ff', border: '1px solid #c7d2fe', color: '#6366f1' }}>
+              <ShieldCheck className="w-3.5 h-3.5" /> Enterprise Ready
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-extrabold mb-3" style={{ color: '#0f172a', letterSpacing: '-0.01em' }}>
+              Everything a campus needs,<br />
+              <span style={{ color: '#6366f1' }}>built in from day one</span>
+            </h2>
+            <p className="text-sm max-w-xl mx-auto" style={{ color: '#64748b', lineHeight: 1.7 }}>
+              From DPDPA compliance and cost analytics to one-click SSO for every campus app — explore the full platform.
+            </p>
+          </motion.div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { icon: ShieldCheck, color: '#059669', bg: '#ecfdf5', border: '#a7f3d0',
+                title: 'Security & Compliance',
+                desc: 'FIDO2, DPDPA 2023, WCAG 2.1, and enterprise audit logs covered.',
+                href: '/compliance', label: 'View Compliance →' },
+              { icon: BadgeCheck, color: '#d97706', bg: '#fffbeb', border: '#fde68a',
+                title: 'ROI Calculator',
+                desc: 'See exactly how much your campus saves by switching from OTP to biometrics.',
+                href: '/cost-calculator', label: 'Calculate Savings →' },
+              { icon: Globe, color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc',
+                title: 'Deployment Guide',
+                desc: '9-step integration checklist — from pilot to multi-campus rollout.',
+                href: '/deployment-guide', label: 'Read Guide →' },
+              { icon: KeyRound, color: '#6366f1', bg: '#eef2ff', border: '#c7d2fe',
+                title: 'SSO / OAuth Demo',
+                desc: 'Watch CampusKey act as an identity provider for ERP, LMS, and Library.',
+                href: '/oauth-demo', label: 'Try SSO Demo →' },
+              { icon: Users, color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe',
+                title: 'Admin Dashboard',
+                desc: 'Real-time analytics, user management, audit logs, and risk scoring.',
+                href: '/admin', label: 'Open Admin →' },
+              { icon: Fingerprint, color: '#e11d48', bg: '#fff1f2', border: '#fecdd3',
+                title: 'Register Free',
+                desc: 'Enroll your biometric and experience passwordless login in under a minute.',
+                href: '/enroll', label: 'Get Started →' },
+            ].map((card, i) => (
+              <motion.div key={card.title} {...fadeUp(i * 0.07)}
+                className="rounded-2xl p-5 flex flex-col gap-3"
+                style={{ background: '#fff', border: `1.5px solid ${card.border}`, transition: 'box-shadow 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = `0 6px 24px ${card.color}22`}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ background: card.bg, border: `1px solid ${card.border}` }}>
+                  <card.icon className="w-5 h-5" style={{ color: card.color }} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm mb-1" style={{ color: '#0f172a' }}>{card.title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: '#64748b' }}>{card.desc}</p>
+                </div>
+                <Link to={card.href}
+                  className="text-xs font-bold mt-auto"
+                  style={{ color: card.color }}>
+                  {card.label}
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA ── */}
       <section style={{ padding: '80px 20px', background: 'linear-gradient(135deg, #4f46e5, #6366f1, #7c3aed)' }}>
         <div className="max-w-2xl mx-auto text-center">
@@ -471,6 +562,34 @@ export default function Landing() {
             <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#22c55e' }} />
             <span className="text-xs font-medium" style={{ color: '#64748b' }}>FIDO2 Compliant</span>
           </div>
+        </div>
+        <div className="max-w-5xl mx-auto mt-4 pt-4 flex flex-wrap items-center justify-center gap-5"
+          style={{ borderTop: '1px solid #1e293b' }}>
+          <Link to="/compliance"
+            className="text-xs font-medium transition-colors"
+            style={{ color: '#475569' }}>
+            Security &amp; Compliance
+          </Link>
+          <Link to="/cost-calculator"
+            className="text-xs font-medium transition-colors"
+            style={{ color: '#475569' }}>
+            ROI Calculator
+          </Link>
+          <Link to="/deployment-guide"
+            className="text-xs font-medium transition-colors"
+            style={{ color: '#475569' }}>
+            Deployment Guide
+          </Link>
+          <Link to="/oauth-demo"
+            className="text-xs font-medium transition-colors"
+            style={{ color: '#475569' }}>
+            SSO Demo
+          </Link>
+          <Link to="/admin"
+            className="text-xs font-medium transition-colors"
+            style={{ color: '#475569' }}>
+            Admin
+          </Link>
         </div>
       </footer>
 
