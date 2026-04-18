@@ -31,6 +31,24 @@ const path       = require('path');
 const jwt        = require('jsonwebtoken');
 const os         = require('os');
 
+// Nodemailer — Gmail SMTP, works for ANY recipient email address
+// Setup: enable 2-Step Verification on Gmail → generate an App Password →
+//        set GMAIL_USER and GMAIL_APP_PASSWORD env vars
+const nodemailer = require('nodemailer');
+let emailTransporter = null;
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  emailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASSWORD,
+    },
+  });
+  console.log(`[Email] Gmail SMTP ready — sending as ${process.env.GMAIL_USER}`);
+} else {
+  console.warn('[Email] GMAIL_USER / GMAIL_APP_PASSWORD not set — verification codes will be printed to console (dev fallback)');
+}
+
 const {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -79,6 +97,7 @@ function isAllowedOrigin(origin) {
 //  CHALLENGE STORE  (in-memory, 5-min TTL, one-time use)
 // ─────────────────────────────────────────────────────────────────────────────
 const challengeStore = new Map();
+const verificationRateLimit = new Map(); // `${email}:${purpose}` -> [timestamp, ...]
 
 function storeChallenge(key, challenge) {
   challengeStore.set(key, { challenge, expires: Date.now() + 5 * 60 * 1000 });
@@ -150,6 +169,17 @@ pool.query(`
     meta       TEXT        DEFAULT '{}',
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
+  CREATE TABLE IF NOT EXISTS verification_codes (
+    id         SERIAL PRIMARY KEY,
+    email      TEXT        NOT NULL,
+    code       TEXT        NOT NULL,
+    purpose    TEXT        NOT NULL DEFAULT 'registration',
+    expires_at TIMESTAMPTZ NOT NULL,
+    used       BOOLEAN     DEFAULT FALSE,
+    attempts   INTEGER     DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_verification_codes_email ON verification_codes(email);
 `).catch(err => console.error('[DB init error]', err.message));
 
 const dbGet = (sql, p = []) => pool.query(sql, p).then(r => r.rows[0]);
@@ -234,6 +264,11 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 
+app.get('/api/lan-ip', (_req, res) => {
+  const ips = getLanIPs();
+  res.json({ ip: ips[0] || null });
+});
+
 app.get('/', (_req, res) => {
   res.json({
     service : 'CampusKey Auth API',
@@ -290,22 +325,38 @@ app.get('/auth/qr-session/status/:id', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 app.post('/auth/register/start', async (req, res) => {
   try {
-    const { email, bootstrap_code, name, role, roll_number, department, branch } = req.body;
-    if (!email || !bootstrap_code) {
-      return res.status(400).json({ error: 'email and bootstrap_code are required' });
+    const { email, bootstrap_code, verified_token, name, role, roll_number, department, branch } = req.body;
+    if (!email || (!bootstrap_code && !verified_token)) {
+      return res.status(400).json({ error: 'email and either verified_token or bootstrap_code are required' });
     }
 
     const uid          = email.toLowerCase().trim();
     const resolvedRole = (role === 'faculty') ? 'faculty' : 'student';
 
-    const expectedCode = resolvedRole === 'faculty' ? FACULTY_PASSKEY : STUDENT_PASSKEY;
-    if (bootstrap_code.trim() !== expectedCode) {
-      return res.status(403).json({
-        error : 'Invalid College Passkey',
-        detail: resolvedRole === 'faculty'
-          ? 'Faculty passkey is incorrect. Contact your administrator.'
-          : 'Student passkey is incorrect. Contact your administrator.',
-      });
+    if (verified_token) {
+      // New email-verified path
+      try {
+        const payload = jwt.verify(verified_token, JWT_SECRET);
+        if (payload.type !== 'email_verification' || payload.purpose !== 'registration') {
+          return res.status(401).json({ error: 'Invalid verification token' });
+        }
+        if (payload.email !== uid) {
+          return res.status(401).json({ error: 'Verification token email mismatch' });
+        }
+      } catch {
+        return res.status(401).json({ error: 'Email not verified — token expired or invalid. Please verify your email again.' });
+      }
+    } else {
+      // Legacy fallback — remove after full migration
+      const expectedCode = resolvedRole === 'faculty' ? FACULTY_PASSKEY : STUDENT_PASSKEY;
+      if (bootstrap_code.trim() !== expectedCode) {
+        return res.status(403).json({
+          error : 'Invalid College Passkey',
+          detail: resolvedRole === 'faculty'
+            ? 'Faculty passkey is incorrect. Contact your administrator.'
+            : 'Student passkey is incorrect. Contact your administrator.',
+        });
+      }
     }
 
     await dbRun(
@@ -553,6 +604,138 @@ app.post('/auth/login/finish', async (req, res) => {
   } catch (err) {
     console.error('[/auth/login/finish]', err);
     return res.status(500).json({ error: 'Login finish failed', detail: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  EMAIL VERIFICATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function sendVerificationEmail(email, code) {
+  if (emailTransporter) {
+    await emailTransporter.sendMail({
+      from   : `"CampusKey" <${process.env.GMAIL_USER}>`,
+      to     : email,
+      subject: `${code} is your CampusKey verification code`,
+      html   : `
+        <div style="font-family:-apple-system,sans-serif;max-width:400px;margin:0 auto;padding:40px 20px;">
+          <h2 style="font-size:20px;font-weight:600;margin-bottom:8px;">Your verification code</h2>
+          <p style="color:#666;font-size:14px;margin-bottom:24px;">Enter this code in CampusKey to verify your identity.</p>
+          <div style="background:#f4f4f5;border-radius:12px;padding:20px;text-align:center;margin-bottom:24px;">
+            <span style="font-size:32px;font-weight:700;letter-spacing:8px;font-family:monospace;">${code}</span>
+          </div>
+          <p style="color:#999;font-size:12px;">This code expires in 10 minutes. If you didn't request this, ignore this email.</p>
+          <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
+          <p style="color:#999;font-size:11px;">CampusKey — Passwordless authentication for campus</p>
+        </div>
+      `,
+    });
+  } else {
+    console.log(`[DEV] Verification code for ${email}: ${code}`);
+  }
+}
+
+app.post('/auth/send-verification', async (req, res) => {
+  try {
+    const { email, purpose = 'registration', name, role } = req.body;
+    if (!email || !purpose) {
+      return res.status(400).json({ error: 'email and purpose are required' });
+    }
+
+    const uid = email.toLowerCase().trim();
+
+    // Rate limit: max 5 codes per email+purpose per hour
+    const now = Date.now();
+    const limitKey = `${uid}:${purpose}`;
+    const timestamps = (verificationRateLimit.get(limitKey) || []).filter(t => now - t < 3_600_000);
+    if (timestamps.length >= 5) {
+      return res.status(429).json({ error: 'Too many verification codes requested. Try again in an hour.' });
+    }
+    timestamps.push(now);
+    verificationRateLimit.set(limitKey, timestamps);
+
+    // Remove any existing unused codes for this email+purpose
+    await dbRun(
+      `DELETE FROM verification_codes WHERE email = $1 AND purpose = $2 AND used = FALSE`,
+      [uid, purpose]
+    );
+
+    // Generate secure 6-digit code
+    const { randomInt } = require('crypto');
+    const code = String(randomInt(100000, 999999));
+
+    await dbRun(
+      `INSERT INTO verification_codes (email, code, purpose, expires_at)
+       VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
+      [uid, code, purpose]
+    );
+
+    await sendVerificationEmail(uid, code);
+    logAudit(uid, 'verification_sent', req, { status: 'success', meta: { purpose } });
+
+    return res.json({ success: true, message: 'Verification code sent' });
+
+  } catch (err) {
+    console.error('[/auth/send-verification]', err);
+    return res.status(500).json({ error: 'Failed to send verification code', detail: err.message });
+  }
+});
+
+app.post('/auth/verify-code', async (req, res) => {
+  try {
+    const { email, code, purpose = 'registration' } = req.body;
+    if (!email || !code || !purpose) {
+      return res.status(400).json({ error: 'email, code, and purpose are required' });
+    }
+
+    const uid = email.toLowerCase().trim();
+
+    const record = await dbGet(
+      `SELECT * FROM verification_codes
+       WHERE email = $1 AND purpose = $2 AND used = FALSE
+       ORDER BY created_at DESC LIMIT 1`,
+      [uid, purpose]
+    );
+
+    if (!record) {
+      return res.json({ success: false, error: 'No verification code found. Please request a new one.' });
+    }
+
+    // Increment attempts first
+    await dbRun(`UPDATE verification_codes SET attempts = attempts + 1 WHERE id = $1`, [record.id]);
+
+    if (record.attempts + 1 > 5) {
+      await dbRun(`UPDATE verification_codes SET used = TRUE WHERE id = $1`, [record.id]);
+      logAudit(uid, 'verification_failed', req, { status: 'failure', meta: { reason: 'too_many_attempts', purpose } });
+      return res.json({ success: false, error: 'Too many attempts. Please request a new code.' });
+    }
+
+    if (new Date(record.expires_at) < new Date()) {
+      logAudit(uid, 'verification_failed', req, { status: 'failure', meta: { reason: 'expired', purpose } });
+      return res.json({ success: false, error: 'Code expired. Please request a new one.' });
+    }
+
+    if (record.code !== String(code)) {
+      logAudit(uid, 'verification_failed', req, { status: 'failure', meta: { reason: 'wrong_code', purpose } });
+      return res.json({ success: false, error: 'Invalid code. Please try again.' });
+    }
+
+    // Mark as used and issue short-lived verification token (15 min)
+    await dbRun(`UPDATE verification_codes SET used = TRUE WHERE id = $1`, [record.id]);
+
+    const verifiedToken = jwt.sign(
+      { email: uid, purpose, type: 'email_verification', verified: true },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    logAudit(uid, 'verification_success', req, { status: 'success', meta: { purpose } });
+
+    return res.json({ success: true, verifiedToken });
+
+  } catch (err) {
+    console.error('[/auth/verify-code]', err);
+    return res.status(500).json({ error: 'Failed to verify code', detail: err.message });
   }
 });
 

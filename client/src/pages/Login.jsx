@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Fingerprint, GraduationCap, BookOpen, ShieldCheck,
-  AlertCircle, X, Loader2, ScanFace, Scan, CheckCircle2, MapPin, Clock as ClockIcon, Monitor as MonitorIcon, Smartphone as SmartphoneIcon,
+  AlertCircle, X, Loader2, ScanFace, Scan, CheckCircle2, MapPin, Clock as ClockIcon, Monitor as MonitorIcon, Smartphone as SmartphoneIcon, Mail, ArrowLeft,
 } from 'lucide-react';
 import FloatingOrbs from '../components/FloatingOrbs';
 import QRAuthModal  from '../components/QRAuthModal';
+import VerificationCodeInput from '../components/VerificationCodeInput';
 import { useAuth }  from '../context/AuthContext';
 import { loginWithPasskey } from '../lib/webauthn';
+import { sendVerificationCode, verifyCode } from '../lib/api';
 
 const WAVE = (
   <div className="wave-footer">
@@ -92,6 +94,12 @@ export default function Login() {
   const [emailFocus, setEmailFocus] = useState(false);
   const [verified,   setVerified]   = useState(null); // contextual push auth confirmation
 
+  // Secondary path — email code
+  const [codeMode,    setCodeMode]    = useState(false);
+  const [codeSent,    setCodeSent]    = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [codeError,   setCodeError]   = useState('');
+
   function getDeviceLabel() {
     const ua = navigator.userAgent || '';
     if (/Android/i.test(ua))       return { label: 'Android Phone',  Icon: SmartphoneIcon };
@@ -125,6 +133,70 @@ export default function Login() {
           : err.message
       );
       setLoading(false);
+    }
+  }
+
+  async function handleSendLoginCode() {
+    if (!email.trim()) { setError('Please enter your campus email first.'); return; }
+    setError('');
+    setCodeLoading(true);
+    try {
+      const result = await sendVerificationCode(email.trim().toLowerCase(), 'login');
+      if (result.success) {
+        setCodeSent(true);
+        setCodeMode(true);
+      } else {
+        setError(result.error || 'Could not send code. Please try again.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setCodeLoading(false);
+    }
+  }
+
+  async function handleVerifyLoginCode(code) {
+    setCodeError('');
+    setCodeLoading(true);
+    try {
+      const result = await verifyCode(email.trim().toLowerCase(), code, 'login');
+      if (result.success) {
+        // Identity verified — now trigger WebAuthn authentication
+        try {
+          const authResult = await loginWithPasskey(email.trim().toLowerCase());
+          if (authResult.success) {
+            const device = getDeviceLabel();
+            setVerified({ user: authResult.user, token: authResult.token, device, time: new Date() });
+            setCodeLoading(false);
+            setTimeout(() => {
+              login(authResult.user, authResult.token, authResult.user?.role || role);
+              navigate('/dashboard', { replace: true });
+            }, 2000);
+          }
+        } catch (err) {
+          setCodeError(
+            err.name === 'NotAllowedError'
+              ? 'Biometric prompt was dismissed. Please try again.'
+              : err.message
+          );
+          setCodeLoading(false);
+        }
+      } else {
+        setCodeError(result.error || 'Invalid code. Please try again.');
+        setCodeLoading(false);
+      }
+    } catch {
+      setCodeError('Network error. Please try again.');
+      setCodeLoading(false);
+    }
+  }
+
+  async function handleResendLoginCode() {
+    setCodeError('');
+    try {
+      await sendVerificationCode(email.trim().toLowerCase(), 'login');
+    } catch {
+      setCodeError('Could not resend code. Please try again.');
     }
   }
 
@@ -283,69 +355,139 @@ export default function Login() {
           </AnimatePresence>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569', marginBottom: 6 }}>
-                {role === 'faculty' ? 'Faculty Mail ID' : 'Campus Email'}
-              </label>
-              <input
-                type="email"
-                placeholder="Enter your campus email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={() => setEmailFocus(true)}
-                onBlur={() => setEmailFocus(false)}
-                autoComplete="email webauthn"
-                required
-                style={{
-                  width: '100%', borderRadius: 12, padding: '12px 16px',
-                  background: emailFocus ? '#ffffff' : '#f8fafc',
-                  border: emailFocus ? '1.5px solid #6366f1' : '1.5px solid #e2e8f0',
-                  boxShadow: emailFocus ? '0 0 0 3px rgba(99,102,241,0.12)' : 'none',
-                  color: '#0f172a', fontSize: 14, outline: 'none',
-                  transition: 'all 0.2s',
-                }}
-              />
-            </div>
+          <AnimatePresence mode="wait">
+            {!codeMode ? (
+              <motion.div key="passkey-form"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#475569', marginBottom: 6 }}>
+                      {role === 'faculty' ? 'Faculty Mail ID' : 'Campus Email'}
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="Enter your campus email"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      onFocus={() => setEmailFocus(true)}
+                      onBlur={() => setEmailFocus(false)}
+                      autoComplete="email webauthn"
+                      required
+                      style={{
+                        width: '100%', borderRadius: 12, padding: '12px 16px',
+                        background: emailFocus ? '#ffffff' : '#f8fafc',
+                        border: emailFocus ? '1.5px solid #6366f1' : '1.5px solid #e2e8f0',
+                        boxShadow: emailFocus ? '0 0 0 3px rgba(99,102,241,0.12)' : 'none',
+                        color: '#0f172a', fontSize: 14, outline: 'none',
+                        transition: 'all 0.2s',
+                      }}
+                    />
+                  </div>
 
-            {/* Biometric authenticate button */}
-            <motion.button
-              type="submit"
-              disabled={loading}
-              whileHover={!loading ? { scale: 1.02 } : {}}
-              whileTap={!loading ? { scale: 0.97 } : {}}
-              className="w-full rounded-xl py-3.5 font-bold text-white flex items-center justify-center gap-2.5 relative overflow-hidden"
-              style={{
-                background: loading
-                  ? 'linear-gradient(135deg, #818cf8, #6366f1)'
-                  : 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                boxShadow: '0 6px 22px rgba(99,102,241,0.36)',
-                border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15,
-              }}
-            >
-              {/* Shimmer while scanning */}
-              {loading && (
-                <span className="absolute inset-0 pointer-events-none" style={{
-                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.20) 50%, transparent 100%)',
-                  backgroundSize: '300% 100%', animation: 'shimmer 1.4s linear infinite',
-                }} />
-              )}
-              <span className="relative flex items-center gap-2.5">
-                {loading
-                  ? <><Loader2 className="w-5 h-5 animate-spin" /><span>Scanning Biometric…</span></>
-                  : <><Fingerprint className="w-5 h-5" /><span>Authenticate with Biometric</span></>
-                }
-              </span>
-            </motion.button>
-          </form>
+                  {/* Primary: passkey button */}
+                  <motion.button
+                    type="submit"
+                    disabled={loading || codeLoading}
+                    whileHover={!loading ? { scale: 1.02 } : {}}
+                    whileTap={!loading ? { scale: 0.97 } : {}}
+                    className="w-full rounded-xl py-3.5 font-bold text-white flex items-center justify-center gap-2.5 relative overflow-hidden"
+                    style={{
+                      background: loading
+                        ? 'linear-gradient(135deg, #818cf8, #6366f1)'
+                        : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                      boxShadow: '0 6px 22px rgba(99,102,241,0.36)',
+                      border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 15,
+                    }}
+                  >
+                    {loading && (
+                      <span className="absolute inset-0 pointer-events-none" style={{
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.20) 50%, transparent 100%)',
+                        backgroundSize: '300% 100%', animation: 'shimmer 1.4s linear infinite',
+                      }} />
+                    )}
+                    <span className="relative flex items-center gap-2.5">
+                      {loading
+                        ? <><Loader2 className="w-5 h-5 animate-spin" /><span>Scanning Biometric…</span></>
+                        : <><Fingerprint className="w-5 h-5" /><span>Sign in with passkey</span></>
+                      }
+                    </span>
+                  </motion.button>
 
-          {/* Footer */}
-          <div className="mt-6 text-center text-sm" style={{ color: '#64748b' }}>
-            First time?{' '}
-            <Link to="/enroll" className="font-semibold" style={{ color: '#4f46e5' }}>
-              Register your passkey →
-            </Link>
-          </div>
+                  {/* Secondary: email code path */}
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={handleSendLoginCode}
+                      disabled={codeLoading || loading}
+                      className="text-sm font-medium flex items-center justify-center gap-1.5 mx-auto"
+                      style={{
+                        background: 'none', border: 'none', padding: '6px 8px',
+                        cursor: codeLoading || loading ? 'not-allowed' : 'pointer',
+                        color: codeLoading ? '#94a3b8' : '#64748b',
+                      }}
+                    >
+                      {codeLoading
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Sending code…</span></>
+                        : <><Mail className="w-3.5 h-3.5" /><span>Send me a verification code instead</span></>
+                      }
+                    </button>
+                  </div>
+                </form>
+
+                <div className="mt-5 text-center text-sm" style={{ color: '#64748b' }}>
+                  First time?{' '}
+                  <Link to="/enroll" className="font-semibold" style={{ color: '#4f46e5' }}>
+                    Register your passkey →
+                  </Link>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div key="code-form"
+                initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                <div className="text-center mb-5">
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-3"
+                    style={{ background: 'linear-gradient(135deg, #eef2ff, #e0e7ff)', border: '1.5px solid #c7d2fe' }}>
+                    <Mail className="w-5 h-5" style={{ color: '#4f46e5' }} />
+                  </div>
+                  <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>Check your inbox</p>
+                  <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+                    Code sent to <strong>{email}</strong>
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: '#94a3b8' }}>
+                    Enter the code, then verify your biometric
+                  </p>
+                </div>
+
+                <VerificationCodeInput
+                  length={6}
+                  onComplete={handleVerifyLoginCode}
+                  onResend={handleResendLoginCode}
+                  isLoading={codeLoading}
+                  error={codeError}
+                />
+
+                {codeLoading && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="mt-3 flex items-center justify-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: '#6366f1' }} />
+                    <span className="text-xs" style={{ color: '#64748b' }}>Verifying…</span>
+                  </motion.div>
+                )}
+
+                <button type="button"
+                  onClick={() => { setCodeMode(false); setCodeSent(false); setCodeError(''); setError(''); }}
+                  className="mt-4 w-full flex items-center justify-center gap-1.5 text-sm"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to passkey sign in
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Security badges */}

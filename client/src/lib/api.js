@@ -54,6 +54,24 @@ async function request(method, path, body) {
 const post = (path, body) => request('POST', path, body);
 const get  = (path)       => request('GET',  path);
 
+export async function sendVerificationCode(email, purpose = 'registration', name = '', role = '') {
+  const res = await fetch(`${BASE}/auth/send-verification`, {
+    method : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body   : JSON.stringify({ email, purpose, name, role }),
+  });
+  return res.json();
+}
+
+export async function verifyCode(email, code, purpose = 'registration') {
+  const res = await fetch(`${BASE}/auth/verify-code`, {
+    method : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body   : JSON.stringify({ email, code, purpose }),
+  });
+  return res.json();
+}
+
 export const api = {
   // ── WebAuthn flows ─────────────────────────────────────────────────────────
   registerStart : (data)                       => post('/auth/register/start',  data),
