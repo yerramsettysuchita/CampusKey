@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Build output — never commit, Vercel rebuilds from source
+dist/
+client/dist/
+
 # Environment secrets — NEVER commit
 .env
 .env.local
